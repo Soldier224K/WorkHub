@@ -1,0 +1,292 @@
+openapi: 3.0.3
+info:
+  title: WorkHub API
+  description: High-performance Coworking Space Management API with atomic concurrency, slot reservation engine, real-time presence, and role-based access control.
+  version: 1.0.0
+servers:
+  - url: http://localhost:4000/api/v1
+    description: Local development server
+paths:
+  /auth/register:
+    post:
+      summary: Register a new member
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name: { type: string, example: "Sarah Connor" }
+                email: { type: string, format: email, example: "sarah@cyberdyne.io" }
+                password: { type: string, minLength: 6, example: "Secret123!" }
+                company: { type: string, example: "Cyberdyne Systems" }
+                role: { type: string, enum: [member, manager], default: member }
+      responses:
+        201:
+          description: Created
+        409:
+          description: Email already in use
+  /auth/login:
+    post:
+      summary: Login with email and password
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        200:
+          description: Login successful
+        401:
+          description: Invalid credentials
+  /auth/refresh:
+    post:
+      summary: Refresh access token
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        200:
+          description: New access token generated
+  /members/me:
+    get:
+      summary: Get current authenticated member profile with active pass
+      tags: [Members]
+      security: [{ bearerAuth: [] }]
+      responses:
+        200:
+          description: Member profile
+  /members/me/device:
+    patch:
+      summary: Register FCM device token for push notifications
+      tags: [Members]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string }
+      responses:
+        200:
+          description: Device token registered
+  /spaces:
+    get:
+      summary: List all workspaces
+      tags: [Spaces]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: location
+          schema: { type: string }
+        - in: query
+          name: type
+          schema: { type: string, enum: [desk, meeting_room, team_room] }
+        - in: query
+          name: floor
+          schema: { type: integer }
+      responses:
+        200:
+          description: Workspace listing
+    post:
+      summary: Create workspace with floor coordinates (Manager only)
+      tags: [Spaces]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, type, location, hourlyRate]
+              properties:
+                name: { type: string }
+                type: { type: string, enum: [desk, meeting_room, team_room] }
+                location: { type: string }
+                floor: { type: integer, default: 1 }
+                capacity: { type: integer, default: 1 }
+                hourlyRate: { type: number }
+                layout:
+                  type: object
+                  properties:
+                    x: { type: number }
+                    y: { type: number }
+                    w: { type: number }
+                    h: { type: number }
+                    rot: { type: number }
+      responses:
+        201:
+          description: Workspace created
+  /spaces/availability:
+    get:
+      summary: Get per-space booked slot keys & operating window for time rail
+      tags: [Spaces]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: location
+          required: true
+          schema: { type: string }
+        - in: query
+          name: date
+          required: true
+          schema: { type: string, example: "2026-10-04" }
+      responses:
+        200:
+          description: Availability payload for live floor plan
+  /bookings:
+    get:
+      summary: List bookings (role-aware)
+      tags: [Bookings]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string }
+        - in: query
+          name: from
+          schema: { type: string }
+        - in: query
+          name: to
+          schema: { type: string }
+      responses:
+        200:
+          description: Bookings list
+    post:
+      summary: Create booking (supports Idempotency-Key & atomic concurrency)
+      tags: [Bookings]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [resource, start, end]
+              properties:
+                resource: { type: string }
+                start: { type: string, format: date-time }
+                end: { type: string, format: date-time }
+                notes: { type: string }
+      responses:
+        201:
+          description: Booking confirmed or pending approval
+        409:
+          description: SLOT_TAKEN - Slot already reserved
+        422:
+          description: OUTSIDE_HOURS or PAST_TIME
+  /bookings/{id}:
+    get:
+      summary: Get booking details
+      tags: [Bookings]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Booking details
+    put:
+      summary: Update booking status (approve/reject/reschedule)
+      tags: [Bookings]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { type: string }
+                notes: { type: string }
+      responses:
+        200:
+          description: Status updated
+    delete:
+      summary: Cancel booking (calculates refund & releases holding)
+      tags: [Bookings]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Booking cancelled
+  /qr/check-in/{id}:
+    get:
+      summary: Scan QR code check-in & unlock desk
+      tags: [QR Check-in]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+        - in: query
+          name: token
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Check-in confirmed, desk unlocked
+  /guests/pass/{token}:
+    get:
+      summary: Public guest pass view (No auth required)
+      tags: [Guests]
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Guest pass card details with host and workspace
+  /reports/heatmap:
+    get:
+      summary: Weekday x Hour booking density heatmap (Manager only)
+      tags: [Reports]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: location
+          schema: { type: string }
+      responses:
+        200:
+          description: 7x24 heatmap matrix
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

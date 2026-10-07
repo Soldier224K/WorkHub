@@ -1,0 +1,154 @@
+{
+  "info": {
+    "name": "WorkHub API Collection",
+    "description": "Postman Collection for WorkHub Coworking Space Management Platform",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:4000/api/v1" },
+    { "key": "token", "value": "" },
+    { "key": "spaceId", "value": "" },
+    { "key": "bookingId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register Member",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/register",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Sarah Connor\",\n  \"email\": \"sarah@cyberdyne.io\",\n  \"password\": \"Password123!\",\n  \"company\": \"Cyberdyne Systems\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login Manager",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"manager@workhub.io\",\n  \"password\": \"Password123!\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login Member",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"sarah@cyberdyne.io\",\n  \"password\": \"Password123!\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Spaces",
+      "item": [
+        {
+          "name": "List Spaces",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/spaces?location=Downtown",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        },
+        {
+          "name": "Get Availability (Time Rail)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/spaces/availability?location=Downtown&date=2026-10-04",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Bookings",
+      "item": [
+        {
+          "name": "Create Booking",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/bookings",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Idempotency-Key", "value": "req_key_123" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resource\": \"{{spaceId}}\",\n  \"start\": \"2026-10-05T10:00:00.000Z\",\n  \"end\": \"2026-10-05T12:00:00.000Z\",\n  \"notes\": \"Morning design review\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Cancel Booking",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/bookings/{{bookingId}}",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "QR & Guests",
+      "item": [
+        {
+          "name": "Check-in Desk via QR",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/qr/check-in/{{bookingId}}?token=YOUR_QR_TOKEN"
+          }
+        },
+        {
+          "name": "Public Guest Pass View",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/guests/pass/YOUR_GUEST_TOKEN"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reports (Manager)",
+      "item": [
+        {
+          "name": "Hourly Heatmap",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/reports/heatmap?location=Downtown",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        },
+        {
+          "name": "Space Utilization",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/reports/utilization?location=Downtown",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        },
+        {
+          "name": "Revenue Ledger",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/reports/revenue",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        }
+      ]
+    }
+  ]
+}
